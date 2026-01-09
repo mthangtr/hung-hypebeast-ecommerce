@@ -213,8 +213,6 @@ CREATE TABLE admin_users (
                              username VARCHAR(100) UNIQUE NOT NULL,
                              password_hash VARCHAR(255) NOT NULL, -- Bcrypt hash
                              full_name VARCHAR(255),
-                             role VARCHAR(50) DEFAULT 'staff', -- 'admin', 'staff', 'warehouse'
-                             is_active BOOLEAN DEFAULT true,
                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                              last_login_at TIMESTAMP
 );
