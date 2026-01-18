@@ -40,6 +40,7 @@ public class CartService {
         Cart cart = getOrCreateCart(sessionId);
         ProductVariant variant = findVariant(request.getVariantId());
 
+        // Phải lấy stock hiện tại trừ đi số lượng đã được đặt trước để tránh oversell
         int availableStock = variant.getStockQuantity() - variant.getReservedQuantity();
         CartItem existingItem = cartItemRepository.findByCartAndVariant(cart, variant).orElse(null);
 

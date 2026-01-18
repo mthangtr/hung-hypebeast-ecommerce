@@ -400,6 +400,72 @@
 			"description": "Shopping cart endpoints"
 		},
 		{
+			"name": "Checkout - Inventory Reservation",
+			"item": [
+				{
+					"name": "Reserve Inventory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "test-session-123"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/checkout/reserve",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "checkout", "reserve"]
+						},
+						"description": "Reserve inventory for 15 minutes when customer enters checkout page. This locks the items in cart so other customers cannot purchase them."
+					}
+				},
+				{
+					"name": "Get Active Reservation",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "test-session-123"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/checkout/reservation",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "checkout", "reservation"]
+						},
+						"description": "Check if there's an active reservation for this session. Returns remaining time."
+					}
+				},
+				{
+					"name": "Cancel Reservation",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "test-session-123"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/checkout/reservation",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "checkout", "reservation"]
+						},
+						"description": "Cancel the reservation and release the inventory back to available stock."
+					}
+				}
+			],
+			"description": "Inventory reservation endpoints for checkout process"
+		},
+		{
 			"name": "Error Scenarios",
 			"item": [
 				{
@@ -571,6 +637,46 @@
 							"path": ["api", "cart", "items", "99999"]
 						},
 						"description": "Test deleting non-existent cart item"
+					}
+				},
+				{
+					"name": "Reserve - Empty Cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "non-existent-session"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/checkout/reserve",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "checkout", "reserve"]
+						},
+						"description": "Test reserving inventory with empty or non-existent cart"
+					}
+				},
+				{
+					"name": "Reserve - Last Item Race Condition",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-condition-test"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/checkout/reserve",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "checkout", "reserve"]
+						},
+						"description": "Test race condition scenario - when another user already reserved the last item"
 					}
 				}
 			],
