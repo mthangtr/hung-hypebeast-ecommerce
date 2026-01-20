@@ -11,8 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "carts", indexes = {
-    @Index(name = "idx_carts_session", columnList = "session_id"),
-    @Index(name = "idx_carts_expires", columnList = "expires_at")
+    @Index(name = "idx_carts_session", columnList = "session_id")
 })
 @Getter
 @Setter
@@ -31,9 +30,6 @@ public class Cart {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "expires_at")
-    private LocalDateTime expiresAt;
-
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItem> items = new ArrayList<>();
 
@@ -41,7 +37,6 @@ public class Cart {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        expiresAt = LocalDateTime.now().plusDays(7);
     }
 
     @PreUpdate

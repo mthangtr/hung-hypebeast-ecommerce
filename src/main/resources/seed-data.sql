@@ -3,7 +3,7 @@
 -- ============================================
 
 -- Clear existing data (in reverse order of dependencies)
-TRUNCATE TABLE order_status_history, order_items, orders, payment_transactions, 
+TRUNCATE TABLE order_items, orders, payment_transactions, 
              inventory_reservations, cart_items, carts, product_variants, products, admin_users 
 RESTART IDENTITY CASCADE;
 

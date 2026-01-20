@@ -22,7 +22,6 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final CartRepository cartRepository;
     private final ProductVariantRepository variantRepository;
     private final InventoryReservationService inventoryReservationService;
@@ -37,6 +36,10 @@ public class OrderService {
 
         if (cart.getItems().isEmpty()) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+
+        if (inventoryReservationService.getActiveReservation(sessionId) == null) {
+            throw new CustomException(ErrorCode.RESERVATION_EXPIRED);
         }
 
         Order order = new Order();
@@ -86,8 +89,6 @@ public class OrderService {
         order.setTotalAmount(subtotal);
 
         Order savedOrder = orderRepository.save(order);
-
-        recordStatusHistory(savedOrder, null, "pending", "system", "Order created");
 
         inventoryReservationService.completeReservation(sessionId, savedOrder.getId());
 
@@ -148,21 +149,7 @@ public class OrderService {
             order.setCancelledAt(LocalDateTime.now());
         }
 
-        Order updatedOrder = orderRepository.save(order);
-        recordStatusHistory(updatedOrder, oldStatus, newStatus, changedBy, adminNote);
-
-        return updatedOrder;
-    }
-
-    private void recordStatusHistory(Order order, String fromStatus, String toStatus, 
-                                    String changedBy, String note) {
-        OrderStatusHistory history = new OrderStatusHistory();
-        history.setOrder(order);
-        history.setFromStatus(fromStatus);
-        history.setToStatus(toStatus);
-        history.setChangedBy(changedBy);
-        history.setNote(note);
-        orderStatusHistoryRepository.save(history);
+        return orderRepository.save(order);
     }
 
     private boolean isValidStatusTransition(String currentStatus, String newStatus) {

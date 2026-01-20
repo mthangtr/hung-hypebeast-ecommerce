@@ -50,12 +50,10 @@ CREATE TABLE carts (
                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                        session_id VARCHAR(255) UNIQUE NOT NULL, -- Cookie/Session ID từ frontend
                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                       expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days') -- Giỏ hàng tồn tại 7 ngày
+                       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_carts_session ON carts(session_id);
-CREATE INDEX idx_carts_expires ON carts(expires_at);
 
 CREATE TABLE cart_items (
                             id BIGSERIAL PRIMARY KEY,
@@ -171,19 +169,6 @@ CREATE TABLE order_items (
 
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE INDEX idx_order_items_variant ON order_items(variant_id);
-
--- Lịch sử thay đổi trạng thái đơn hàng (để tracking)
-CREATE TABLE order_status_history (
-                                      id BIGSERIAL PRIMARY KEY,
-                                      order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-                                      from_status VARCHAR(20),
-                                      to_status VARCHAR(20) NOT NULL,
-                                      note TEXT,
-                                      changed_by VARCHAR(100), -- 'system', 'admin:user_id', 'customer'
-                                      changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_order_history_order ON order_status_history(order_id, changed_at DESC);
 
 -- ============================================
 -- 5. SEPAY PAYMENT TRACKING (Optional Phase 1)
