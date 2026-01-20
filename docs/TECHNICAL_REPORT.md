@@ -247,7 +247,7 @@
 
 #### 2.2.2. Sequence Diagrams
 
-**Diagram 1: Inventory Reservation & Checkout (Luồng phức tạp nhất)**
+**Diagram 1: Inventory Reservation (Giữ hàng khi bắt đầu checkout)**
 
 ```mermaid
 sequenceDiagram
@@ -272,13 +272,30 @@ sequenceDiagram
     Note over Scheduler: Chạy định kỳ, nhả reservation hết hạn
     Scheduler->>ResSvc: releaseExpiredReservations()
     ResSvc->>DB: giảm reserved + set expired
+```
+
+---
+
+**Diagram 2: Checkout (Tạo đơn hàng từ reservation)**
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Frontend
+    participant API as CheckoutController
+    participant ResSvc as ReservationService
+    participant OrderSvc as OrderService
+    participant Mail as EmailService
+    participant DB as Database
     
     User->>FE: Bấm "Đặt hàng"
     FE->>API: POST /checkout/order
     API->>ResSvc: getActiveReservation(sessionId)
     alt Reservation còn hiệu lực
-        API->>DB: create order + order_items
+        API->>OrderSvc: createOrder(request, sessionId)
+        OrderSvc->>DB: create order + order_items
         ResSvc->>DB: giảm stock + reserved, set completed
+        OrderSvc->>Mail: gửi email xác nhận + link tracking
         API-->>FE: OrderDTO + tracking
     else Reservation hết hạn
         API-->>FE: 400 RESERVATION_EXPIRED
