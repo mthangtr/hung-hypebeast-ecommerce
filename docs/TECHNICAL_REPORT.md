@@ -19,10 +19,8 @@
 
 | Tính năng | Mô tả | Quyết định |
 |-----------|-------|------------|
-| **SePay Webhook Integration** | Tự động cập nhật trạng thái thanh toán khi nhận webhook |  Đã làm (tích hợp thành công) |
-| **Admin Catalog CRUD** | API tạo/sửa/xóa sản phẩm |  Bỏ qua (theo yêu cầu khách hàng) |
-| **Advanced Filters** | Lọc theo brand, tag, rating |  Bỏ qua (không trong scope) |
-| **Coupon/Discount** | Mã giảm giá, khuyến mãi |  Bỏ qua (không trong scope) |
+| **SePay Webhook Integration** | Tự động cập nhật trạng thái thanh toán khi nhận webhook |  Đã làm |
+| **Admin Catalog CRUD** | API tạo/sửa/xóa sản phẩm |  Bỏ qua (theo yêu cầu khách hàng - "chưa cần làm phần nhập liệu sản phẩm") |
 
 ### 1.2. Gap Analysis
 
@@ -60,7 +58,7 @@
 
 ### 1.3. Đánh giá Khả năng Hoàn thiện
 
-#### Cam kết: 95% yêu cầu Must-have
+#### Cam kết: 100% yêu cầu Must-have
 
 **Các tính năng đã hoàn thiện:**
 -  Catalog với pagination, filtering, sorting
@@ -69,7 +67,7 @@
 -  Checkout flow (COD + SePay)
 -  Email notification với tracking link
 -  Admin order management
--  SePay webhook integration (vượt yêu cầu)
+-  SePay webhook integration
 
 **Giả lập vs Production-ready:**
 
