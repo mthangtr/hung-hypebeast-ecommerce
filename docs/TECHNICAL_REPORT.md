@@ -35,30 +35,21 @@
 
 #### Quyết định thiết kế quan trọng
 
-**1. Inventory Management Strategy**
-- **Vấn đề**: "Last item" - 2 người checkout cùng lúc 1 sản phẩm cuối
-- **Giải pháp**: 
-  - Thêm cột `reserved_quantity` vào `product_variants`
-  - Dùng `PESSIMISTIC_WRITE` lock khi reserve/complete
-  - Available stock = `stock_quantity - reserved_quantity`
+**1. Inventory (Last item)**
+- Dùng `reserved_quantity` + `PESSIMISTIC_WRITE` khi reserve/complete.
+- Available stock = `stock_quantity - reserved_quantity`.
 
-**2. Reservation Timeout Handling**
-- **Vấn đề**: Server sập lúc đang giữ hàng thì sao?
-- **Giải pháp**:
-  - Reservation có `expires_at` timestamp
-  - Scheduler độc lập, chạy định kỳ mỗi 1 phút
-  - Ngay khi restart, scheduler sẽ dọn reservation hết hạn
+**2. Reservation Timeout**
+- Mỗi reservation có `expires_at`.
+- Scheduler chạy định kỳ để nhả hàng hết hạn, an toàn khi restart.
 
-**3. Session Management (Guest Checkout)**
-- **Vấn đề**: Không có user authentication, làm sao quản lý giỏ hàng?
-- **Giải pháp**: Client-generated `X-Session-Id` header (UUID)
-  - Frontend tự sinh session ID, lưu localStorage
-  - Backend lưu cart theo session_id
-  - Tracking dùng UUID token riêng (không dùng session_id)
+**3. Guest Session**
+- Client gửi `X-Session-Id` (UUID) để quản lý cart.
+- Tracking dùng `tracking_token` riêng, không phụ thuộc session.
 
 ### 1.3. Đánh giá Khả năng Hoàn thiện
 
-#### Cam kết: 95% yêu cầu Must-have
+#### Cam kết: 100% yêu cầu Must-have (Phase 1)
 
 **Phạm vi cam kết:**
 - Catalog với pagination, filtering, sorting
@@ -68,9 +59,12 @@
 - Email notification với tracking link
 - Admin order management
 
-**Phần đã cắt giảm:**
+**Phần đã cắt giảm / defer:**
 - **SePay webhook integration** - Đã defer sang Phase 2 theo yêu cầu khách hàng ("nếu không kịp thì để phase sau")
-- Admin auth được giữ ở mức bảo vệ endpoint cơ bản
+
+**Cơ sở đánh giá khả năng hoàn thiện:**
+- Scope Phase 1 tập trung COD và admin xử lý thủ công payment status.
+- Luồng inventory được thiết kế theo lock DB, không phụ thuộc hệ thống ngoài.
 
 **Rủi ro & Mitigation:**
 
@@ -99,7 +93,6 @@
 - is_active (BOOLEAN)
 - created_at, updated_at (TIMESTAMP)
 ```
-Indexes: `idx_products_category`, `idx_products_slug`, `idx_products_active`
 
 **product_variants (SKU - Biến thể sản phẩm)**
 ```
@@ -114,7 +107,6 @@ Indexes: `idx_products_category`, `idx_products_slug`, `idx_products_active`
 - is_active (BOOLEAN)
 - created_at, updated_at (TIMESTAMP)
 ```
-Indexes: `idx_variants_product`, `idx_variants_sku`, `idx_variants_stock`
 
 **Quan hệ**: `products` 1-N `product_variants`
 
@@ -126,7 +118,6 @@ Indexes: `idx_variants_product`, `idx_variants_sku`, `idx_variants_stock`
 - session_id (VARCHAR, UNIQUE, NOT NULL) - client-generated session
 - created_at, updated_at (TIMESTAMP)
 ```
-Indexes: `idx_carts_session`
 
 **cart_items (Item trong giỏ)**
 ```
@@ -136,7 +127,6 @@ Indexes: `idx_carts_session`
 - quantity (INT, NOT NULL)
 - created_at, updated_at (TIMESTAMP)
 ```
-Indexes: `idx_cart_items_cart`, `idx_cart_items_variant`
 
 **Quan hệ**: `carts` 1-N `cart_items`, `product_variants` 1-N `cart_items`
 
@@ -153,7 +143,6 @@ Indexes: `idx_cart_items_cart`, `idx_cart_items_variant`
 - expires_at (TIMESTAMP, NOT NULL) - thời điểm hết hạn
 - status (VARCHAR) - 'active', 'completed', 'expired', 'cancelled'
 ```
-Indexes: `idx_reservations_variant`, `idx_reservations_session`, `idx_reservations_expires`
 
 **Quan hệ**: `product_variants` 1-N `inventory_reservations`
 
@@ -173,7 +162,6 @@ Indexes: `idx_reservations_variant`, `idx_reservations_session`, `idx_reservatio
 - customer_note, admin_note (TEXT)
 - created_at, updated_at, confirmed_at, paid_at, shipped_at, completed_at, cancelled_at (TIMESTAMP)
 ```
-Indexes: `idx_orders_number`, `idx_orders_tracking`, `idx_orders_email`, `idx_orders_status`
 
 **order_items (Sản phẩm trong đơn hàng)**
 ```
@@ -183,7 +171,6 @@ Indexes: `idx_orders_number`, `idx_orders_tracking`, `idx_orders_email`, `idx_or
 - product_name, variant_sku, variant_size, variant_color (VARCHAR) - snapshot
 - unit_price, quantity, subtotal (DECIMAL)
 ```
-Indexes: `idx_order_items_order`, `idx_order_items_variant`
 
 **Quan hệ**: `orders` 1-N `order_items`
 
@@ -200,7 +187,6 @@ Indexes: `idx_order_items_order`, `idx_order_items_variant`
 - gateway_response (TEXT) - raw webhook payload
 - created_at, updated_at (TIMESTAMP)
 ```
-Indexes: `idx_transactions_order`, `idx_transactions_id`
 
 **Quan hệ**: `orders` 1-N `payment_transactions`
 
@@ -215,37 +201,14 @@ Indexes: `idx_transactions_order`, `idx_transactions_id`
 - is_active (BOOLEAN)
 - created_at, updated_at (TIMESTAMP)
 ```
-Indexes: `idx_admin_username`
 
 ---
 
 #### Thiết kế đặc biệt cho Inventory Management
 
-**Tại sao cần `reserved_quantity`?**
-
-```
-Available Stock = stock_quantity - reserved_quantity
-
-VD: Áo size L còn 1 cái (stock_quantity = 1)
-- User A checkout: reserved_quantity = 1 (available = 0)
-- User B checkout: available = 0 → Báo hết hàng - User A hết 15 phút: Scheduler set reserved_quantity = 0 (available = 1)
-```
-
-**Tại sao dùng Pessimistic Lock?**
-
-```sql
--- Không có lock (SAI)
-SELECT stock_quantity, reserved_quantity FROM product_variants WHERE id = 1;
--- Thread A đọc: stock=1, reserved=0
--- Thread B đọc: stock=1, reserved=0 (cùng lúc)
-UPDATE product_variants SET reserved_quantity = 1 WHERE id = 1;
--- Cả 2 thread đều update thành công → OVERSELL
-
--- Có PESSIMISTIC_WRITE lock (ĐÚNG)
-SELECT ... FROM product_variants WHERE id = 1 FOR UPDATE;
--- Thread A lock row → Thread B phải chờ
--- Thread A reserve xong → Thread B mới đọc được reserved=1
-```
+**Lý do cần `reserved_quantity` và lock**
+- Tránh oversell khi nhiều người checkout cùng lúc.
+- Dùng `PESSIMISTIC_WRITE` để đảm bảo chỉ một luồng cập nhật tồn kho tại một thời điểm.
 
 ---
 
@@ -324,66 +287,23 @@ sequenceDiagram
 
 ---
 
-**Diagram 2: Cart Stock Validation (Ngăn oversell khi thêm giỏ hàng)**
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant FE as Frontend
-    participant API as CartController
-    participant CartSvc as CartService
-    participant DB as Database
-    
-    User->>FE: Thêm vào giỏ hàng
-    FE->>API: POST /api/cart/items
-    API->>CartSvc: addToCart(sessionId, request)
-    CartSvc->>DB: load cart + variant
-    CartSvc->>CartSvc: available = stock - reserved
-    alt Đủ hàng
-        CartSvc->>DB: upsert cart item
-        API-->>FE: CartDTO
-    else Thiếu hàng
-        API-->>FE: 400 INSUFFICIENT_STOCK
-    end
-```
-
----
-
 #### 2.2.3. Giải thích các quyết định thiết kế quan trọng
 
 **1. Tại sao dùng Pessimistic Lock thay vì Optimistic Lock?**
 
-| Tiêu chí | Pessimistic Lock | Optimistic Lock |
-|----------|------------------|-----------------|
-| Cơ chế | Lock row khi đọc (`FOR UPDATE`) | Đọc tự do, check version khi update |
-| Phù hợp | High contention (nhiều người tranh 1 item) | Low contention |
-| Trade-off | Giảm throughput, tăng latency | Retry nhiều khi conflict |
-| Use case | **Last item scenario** của khách hàng | Ít người mua cùng lúc |
-
-**Quyết định**: Pessimistic Lock vì khách hàng nhấn mạnh vấn đề "cái cuối cùng" bị bán cho 2 người.
+Pessimistic Lock phù hợp với bài toán "last item" có contention cao, tránh retry nhiều lần và rủi ro oversell.
 
 ---
 
 **2. Tại sao Scheduler 1 phút thay vì WebSocket/Event-driven?**
 
-| Phương án | Ưu điểm | Nhược điểm |
-|-----------|---------|------------|
-| **Scheduler 1 phút** | Đơn giản, reliable, restart-safe | Độ trễ tối đa 1 phút |
-| Event-driven (TTL) | Real-time | Phức tạp, cần Redis/Queue |
-
-**Quyết định**: Scheduler 1 phút - Reservation 15 phút, trễ 1 phút không ảnh hưởng UX, đơn giản hơn.
+Scheduler 1 phút đơn giản, restart-safe; độ trễ nhỏ so với reservation 10–15 phút.
 
 ---
 
 **3. Tại sao snapshot product info vào order_items?**
 
-```java
-orderItem.setProductName(variant.getProduct().getName());
-orderItem.setVariantSku(variant.getSku());
-// ... instead of FK only
-```
-
-**Lý do**: Lịch sử đơn hàng không đổi. Ngày mai sản phẩm đổi tên/giá, đơn hàng cũ vẫn hiển thị đúng info lúc mua.
+Lịch sử đơn hàng không thay đổi khi sản phẩm đổi tên/giá.
 
 ---
 
@@ -395,7 +315,7 @@ orderItem.setVariantSku(variant.getSku());
 |-----------|-----------|---------|
 | Must-have features | **100%** | Catalog, Cart, Inventory, Checkout (COD), Tracking, Admin |
 | Nice-to-have (SePay) | **Deferred to Phase 2** | Theo yêu cầu khách hàng - chỉ COD trong Phase 1 |
-| Database design | **100%** | ERD 9 bảng, index optimization |
+| Database design | **100%** | Thiết kế bảng & quan hệ đầy đủ cho Phase 1 |
 | API endpoints | **100%** | 17 APIs (11 public + 6 admin) |
 | Email Service | **100%** | SMTP Gmail, gửi tracking link |
 | Technical docs | **100%** | Report này + sequence diagrams |
