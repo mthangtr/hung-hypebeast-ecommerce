@@ -530,7 +530,7 @@
 									"key": "status",
 									"value": "pending",
 									"disabled": true,
-									"description": "Filter by status: pending, confirmed, paid, shipping, completed, cancelled"
+									"description": "Filter by status: pending, confirmed, processing, shipping, completed, cancelled"
 								}
 							]
 						},
@@ -600,7 +600,7 @@
 					}
 				},
 				{
-					"name": "Update Order Status - Mark as Paid",
+					"name": "Update Order Status - Processing",
 					"request": {
 						"method": "PATCH",
 						"header": [
@@ -611,14 +611,36 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"status\": \"paid\",\n    \"adminNote\": \"Đã nhận được thanh toán\"\n}"
+							"raw": "{\n    \"status\": \"processing\",\n    \"adminNote\": \"Đơn hàng đang được chuẩn bị\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/admin/orders/1/status",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "admin", "orders", "1", "status"]
 						},
-						"description": "Update order status to paid"
+						"description": "Update order status to processing (after confirmed)"
+					}
+				},
+				{
+					"name": "Update Payment Status - Mark as Paid",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"paymentStatus\": \"paid\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/orders/1/payment-status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "orders", "1", "payment-status"]
+						},
+						"description": "Update payment status to paid (separate from order status)"
 					}
 				},
 				{
@@ -691,6 +713,209 @@
 			"description": "Admin order management endpoints - requires authentication"
 		},
 		{
+			"name": "Race Condition Tests (Critical)",
+			"item": [
+				{
+					"name": "Step 1 - Customer A: Add Last Item to Cart",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-A"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"variantId\": 42,\n    \"quantity\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/cart/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cart", "items"]
+						},
+						"description": "Customer A adds the last Hoodie Limited Edition XL (only 1 in stock) to cart"
+					}
+				},
+				{
+					"name": "Step 2 - Customer A: Reserve Inventory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-A"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/checkout/reserve",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "checkout", "reserve"]
+						},
+						"description": "Customer A reserves the last item - locks it for 15 minutes"
+					}
+				},
+				{
+					"name": "Step 3 - Customer B: Try to Add Same Item (Should FAIL)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-B"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"variantId\": 42,\n    \"quantity\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/cart/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cart", "items"]
+						},
+						"description": "Customer B tries to add the same item that Customer A reserved - SHOULD FAIL with 'Insufficient stock'"
+					}
+				},
+				{
+					"name": "Step 4 - Customer A: Cancel Reservation",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-A"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/checkout/reservation",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "checkout", "reservation"]
+						},
+						"description": "Customer A cancels reservation - releases the item back to available stock"
+					}
+				},
+				{
+					"name": "Step 5 - Customer B: Try Again (Should SUCCEED)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-B"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"variantId\": 42,\n    \"quantity\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/cart/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cart", "items"]
+						},
+						"description": "Customer B tries again after A cancelled - SHOULD SUCCEED now"
+					}
+				},
+				{
+					"name": "Step 6 - Customer B: Reserve and Create Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-B"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/checkout/reserve",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "checkout", "reserve"]
+						},
+						"description": "Customer B reserves the item successfully"
+					}
+				},
+				{
+					"name": "Step 7 - Customer B: Complete Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-B"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"customerName\": \"Trần Văn B\",\n    \"customerEmail\": \"tranvanb@gmail.com\",\n    \"customerPhone\": \"0902345678\",\n    \"shippingAddress\": \"456 Nguyễn Huệ\",\n    \"shippingCity\": \"TP.HCM\",\n    \"shippingDistrict\": \"Quận 1\",\n    \"paymentMethod\": \"COD\",\n    \"customerNote\": \"Giao ngoài giờ\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/checkout/order",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "checkout", "order"]
+						},
+						"description": "Customer B creates order - stock should now be 0"
+					}
+				},
+				{
+					"name": "Step 8 - Verify Stock is Zero",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/products/9",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "products", "9"]
+						},
+						"description": "Verify that Hoodie Limited Edition XL (variant 42) now has 0 available stock"
+					}
+				},
+				{
+					"name": "Step 9 - Customer C: Try to Buy (Should FAIL)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Session-Id",
+								"value": "race-customer-C"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"variantId\": 42,\n    \"quantity\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/cart/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cart", "items"]
+						},
+						"description": "Customer C tries to buy the out-of-stock item - SHOULD FAIL"
+					}
+				}
+			],
+			"description": "Test the CRITICAL race condition scenario - prevents 'out of stock but still sold' issue"
+		},
+		{
 			"name": "Error Scenarios",
 			"item": [
 				{
@@ -748,6 +973,41 @@
 							"path": ["api", "checkout", "reserve"]
 						},
 						"description": "Test reserving inventory with empty or non-existent cart"
+					}
+				},
+				{
+					"name": "Admin - Invalid Status Transition",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"completed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/orders/1/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "admin", "orders", "1", "status"]
+						},
+						"description": "Test invalid status transition (e.g., pending directly to completed) - should fail"
+					}
+				},
+				{
+					"name": "Order Not Found",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/orders/track/invalid-token-12345",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "orders", "track", "invalid-token-12345"]
+						},
+						"description": "Test tracking with invalid token"
 					}
 				}
 			],
