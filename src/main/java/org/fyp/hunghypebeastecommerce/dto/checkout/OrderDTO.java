@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.fyp.hunghypebeastecommerce.dto.sepay.SepayPaymentInfoDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -41,5 +40,4 @@ public class OrderDTO {
     private LocalDateTime completedAt;
     private LocalDateTime cancelledAt;
     private List<OrderItemDTO> items;
-    private SepayPaymentInfoDTO sepayPaymentInfo;
 }

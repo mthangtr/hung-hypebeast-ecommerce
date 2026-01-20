@@ -1,17 +1,13 @@
 package org.fyp.hunghypebeastecommerce.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.fyp.hunghypebeastecommerce.config.SepayConfig;
 import org.fyp.hunghypebeastecommerce.dto.ResponseObject;
 import org.fyp.hunghypebeastecommerce.dto.checkout.CreateOrderRequest;
 import org.fyp.hunghypebeastecommerce.dto.checkout.OrderDTO;
 import org.fyp.hunghypebeastecommerce.dto.checkout.OrderItemDTO;
 import org.fyp.hunghypebeastecommerce.dto.checkout.ReservationDTO;
-import org.fyp.hunghypebeastecommerce.dto.sepay.SepayPaymentInfoDTO;
 import org.fyp.hunghypebeastecommerce.entity.Order;
 import org.fyp.hunghypebeastecommerce.entity.OrderItem;
-import org.fyp.hunghypebeastecommerce.entity.PaymentTransaction;
-import org.fyp.hunghypebeastecommerce.repository.PaymentTransactionRepository;
 import org.fyp.hunghypebeastecommerce.service.EmailService;
 import org.fyp.hunghypebeastecommerce.service.InventoryReservationService;
 import org.fyp.hunghypebeastecommerce.service.OrderService;
@@ -28,8 +24,6 @@ public class CheckoutController {
     private final InventoryReservationService reservationService;
     private final OrderService orderService;
     private final EmailService emailService;
-    private final SepayConfig sepayConfig;
-    private final PaymentTransactionRepository paymentTransactionRepository;
 
     // Khi người dùng bấm checkout -> tạm thời giữ hàng để người khác không mua hết (trong 15 phút)
     // Hết 15 phút mà không thanh toán thì trả hàng về kho qua InventoryReservationScheduler
@@ -79,39 +73,11 @@ public class CheckoutController {
                 request.getCustomerNote()
         );
 
-        if ("SEPAY".equalsIgnoreCase(request.getPaymentMethod())) {
-            createPendingPaymentTransaction(order);
-        } else {
-            emailService.sendOrderConfirmation(order);
-        }
+        emailService.sendOrderConfirmation(order);
 
         OrderDTO orderDTO = mapToOrderDTO(order);
-        
-        if ("SEPAY".equalsIgnoreCase(request.getPaymentMethod())) {
-            orderDTO.setSepayPaymentInfo(buildSepayPaymentInfo(order));
-        }
 
         return ResponseEntity.ok(ResponseObject.success("Order created successfully", orderDTO));
-    }
-
-    private void createPendingPaymentTransaction(Order order) {
-        PaymentTransaction transaction = new PaymentTransaction();
-        transaction.setOrder(order);
-        transaction.setAmount(order.getTotalAmount());
-        transaction.setPaymentMethod("SEPAY");
-        transaction.setStatus("pending");
-        paymentTransactionRepository.save(transaction);
-    }
-
-    private SepayPaymentInfoDTO buildSepayPaymentInfo(Order order) {
-        return SepayPaymentInfoDTO.builder()
-                .bankName(sepayConfig.getBankName())
-                .accountNumber(sepayConfig.getBankAccountNumber())
-                .accountName(sepayConfig.getBankAccountName())
-                .amount(order.getTotalAmount())
-                .orderNumber(order.getOrderNumber())
-                .transferContent("Thanh toan don hang " + order.getOrderNumber())
-                .build();
     }
 
     private OrderDTO mapToOrderDTO(Order order) {

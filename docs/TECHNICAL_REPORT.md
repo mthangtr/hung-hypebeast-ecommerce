@@ -19,7 +19,7 @@
 
 | Tính năng | Mô tả | Quyết định |
 |-----------|-------|------------|
-| **SePay Webhook Integration** | Tự động cập nhật trạng thái thanh toán khi nhận webhook | Tùy thời gian, có thể để phase sau |
+| **SePay Webhook Integration** | Tự động cập nhật trạng thái thanh toán khi nhận webhook | **Deferred to Phase 2** - Phase 1 chỉ hỗ trợ COD, admin cập nhật payment status thủ công |
 | **Admin Catalog CRUD** | API tạo/sửa/xóa sản phẩm | Bỏ qua (theo yêu cầu khách hàng - "chưa cần làm phần nhập liệu sản phẩm") |
 
 ### 1.2. Gap Analysis
@@ -30,7 +30,7 @@
 |-------------------|---------------------|---------------------|
 | "Giữ hàng 10-15 phút, người khác không mua được" | Race condition khi 2 người checkout cùng lúc cái cuối cùng | Pessimistic Lock (`findByIdWithLock`) + `reserved_quantity` tracking |
 | "Hết giờ không trả tiền thì nhả ra" | Cần cơ chế tự động giải phóng reservation | Spring Scheduler chạy mỗi 1 phút, quét reservation hết hạn |
-| "SePay tự động biết đơn nào đã trả tiền" | Webhook validation, xử lý duplicate, so khớp số tiền | Tách thành optional: giả lập webhook hoặc xử lý thủ công ở Phase 1 |
+| "SePay tự động biết đơn nào đã trả tiền" | Webhook validation, xử lý duplicate, so khớp số tiền | **Deferred to Phase 2** - Phase 1 sử dụng COD và admin update manual |
 | "Đừng bắt khách đăng nhập để xem đơn" | Bảo mật tracking token | UUID token trong URL, không lưu session |
 
 #### Quyết định thiết kế quan trọng
@@ -68,9 +68,9 @@
 - Email notification với tracking link
 - Admin order management
 
-**Phần có thể cắt giảm nếu thiếu thời gian:**
-- SePay webhook integration (đưa sang phase sau hoặc giả lập webhook)
-- Admin auth nâng cao (giới hạn ở mức bảo vệ endpoint cơ bản)
+**Phần đã cắt giảm:**
+- **SePay webhook integration** - Đã defer sang Phase 2 theo yêu cầu khách hàng ("nếu không kịp thì để phase sau")
+- Admin auth được giữ ở mức bảo vệ endpoint cơ bản
 
 **Rủi ro & Mitigation:**
 
@@ -278,13 +278,7 @@ SELECT ... FROM product_variants WHERE id = 1 FOR UPDATE;
 | GET | `/api/admin/orders` | Danh sách đơn hàng (phân trang, filter) |
 | GET | `/api/admin/orders/{orderId}` | Chi tiết đơn hàng |
 | PATCH | `/api/admin/orders/{orderId}/status` | Cập nhật trạng thái đơn |
-| PATCH | `/api/admin/orders/{orderId}/payment-status` | Cập nhật trạng thái thanh toán |
-
-**Webhook APIs**
-
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| POST | `/api/sepay/webhook` | Nhận webhook từ SePay (verify API key) |
+| PATCH | `/api/admin/orders/{orderId}/payment-status` | Cập nhật trạng thái thanh toán (thủ công cho Phase 1) |
 
 ---
 
@@ -330,33 +324,7 @@ sequenceDiagram
 
 ---
 
-**Diagram 2: SePay Webhook Processing (Tự động cập nhật thanh toán)**
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant SePay as SePay Gateway
-    participant Webhook as WebhookController
-    participant OrderSvc as OrderService
-    participant DB as Database
-    participant Email as EmailService
-    
-    User->>SePay: Chuyển khoản (nội dung có order number)
-    SePay->>Webhook: POST /api/sepay/webhook
-    Webhook->>OrderSvc: validate + parse order number
-    OrderSvc->>DB: find order + check amount
-    alt Hợp lệ
-        OrderSvc->>DB: save transaction + mark paid
-        OrderSvc->>Email: send confirmation
-        Webhook-->>SePay: 200 OK
-    else Không hợp lệ
-        Webhook-->>SePay: 200 OK (ignore)
-    end
-```
-
----
-
-**Diagram 3: Cart Stock Validation (Ngăn oversell khi thêm giỏ hàng)**
+**Diagram 2: Cart Stock Validation (Ngăn oversell khi thêm giỏ hàng)**
 
 ```mermaid
 sequenceDiagram
@@ -407,21 +375,7 @@ sequenceDiagram
 
 ---
 
-**3. Tại sao SePay Webhook trả 200 OK ngay cả khi lỗi?**
-
-```java
-catch (Exception e) {
-    log.error("Error processing webhook", e);
-    return ResponseEntity.status(HttpStatus.OK)
-            .body(ResponseObject.success("Webhook received", null));
-}
-```
-
-**Lý do**: Webhook best practice - Luôn trả 2xx để SePay không retry vô hạn. Lỗi nội bộ (duplicate, đã paid) không cần retry.
-
----
-
-**4. Tại sao snapshot product info vào order_items?**
+**3. Tại sao snapshot product info vào order_items?**
 
 ```java
 orderItem.setProductName(variant.getProduct().getName());
@@ -439,9 +393,9 @@ orderItem.setVariantSku(variant.getSku());
 
 | Thành phần | Hoàn thành | Ghi chú |
 |-----------|-----------|---------|
-| Must-have features | **95%** | Catalog, Cart, Inventory, Checkout (COD), Tracking, Admin |
-| Nice-to-have (SePay) | **Tuỳ thời gian** | Webhook integration có thể để phase sau |
+| Must-have features | **100%** | Catalog, Cart, Inventory, Checkout (COD), Tracking, Admin |
+| Nice-to-have (SePay) | **Deferred to Phase 2** | Theo yêu cầu khách hàng - chỉ COD trong Phase 1 |
 | Database design | **100%** | ERD 9 bảng, index optimization |
-| API endpoints | **100%** | 18 APIs (11 public + 6 admin + 1 webhook) |
+| API endpoints | **100%** | 17 APIs (11 public + 6 admin) |
 | Email Service | **100%** | SMTP Gmail, gửi tracking link |
 | Technical docs | **100%** | Report này + sequence diagrams |

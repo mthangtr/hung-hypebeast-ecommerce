@@ -111,7 +111,7 @@ CREATE TABLE orders (
                         shipping_district VARCHAR(100),
 
     -- Thanh toán
-                        payment_method VARCHAR(20) NOT NULL, -- 'COD', 'SEPAY'
+                        payment_method VARCHAR(20) NOT NULL, -- 'COD' (Phase 1), other methods in Phase 2
                         payment_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'paid', 'failed'
 
     -- Giá trị đơn hàng
@@ -144,7 +144,6 @@ CREATE INDEX idx_orders_number ON orders(order_number);
 CREATE INDEX idx_orders_tracking ON orders(tracking_token);
 CREATE INDEX idx_orders_email ON orders(customer_email);
 CREATE INDEX idx_orders_status ON orders(status, created_at DESC);
-CREATE INDEX idx_orders_payment ON orders(payment_status) WHERE payment_method = 'SEPAY';
 CREATE INDEX idx_orders_created ON orders(created_at DESC);
 
 -- Chi tiết đơn hàng
@@ -171,17 +170,17 @@ CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE INDEX idx_order_items_variant ON order_items(variant_id);
 
 -- ============================================
--- 5. SEPAY PAYMENT TRACKING (Optional Phase 1)
+-- 5. PAYMENT TRACKING (Reserved for Phase 2)
 -- ============================================
 
 CREATE TABLE payment_transactions (
                                       id BIGSERIAL PRIMARY KEY,
                                       order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-                                      transaction_id VARCHAR(255), -- SePay transaction ID
+                                      transaction_id VARCHAR(255), -- External payment gateway transaction ID
                                       amount DECIMAL(10,2) NOT NULL,
-                                      payment_method VARCHAR(20) NOT NULL, -- 'COD', 'SEPAY'
+                                      payment_method VARCHAR(20) NOT NULL, -- Payment method identifier
                                       status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'success', 'failed'
-                                      gateway_response TEXT, -- JSON response từ SePay
+                                      gateway_response TEXT, -- JSON response from payment gateway
                                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

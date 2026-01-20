@@ -23,7 +23,6 @@ public class SecurityConfig {
                 .requestMatchers("/api/cart/**").permitAll()
                 .requestMatchers("/api/checkout/**").permitAll()
                 .requestMatchers("/api/orders/track/**").permitAll()
-                .requestMatchers("/api/sepay/webhook").permitAll()
                 .requestMatchers("/api/admin/auth/**").permitAll()
                 .requestMatchers("/api/admin/**").permitAll()
                 .anyRequest().permitAll()
