@@ -143,9 +143,109 @@ INSERT INTO admin_users (username, password_hash, full_name, created_at) VALUES
 ('warehouse', '$2a$12$mqSCydGOyidg8UuwOJL6ROZjsAfluEilRV8Di./ykpfLxqG91xq7m', 'Nhân Viên Kho', CURRENT_TIMESTAMP);
 
 -- ============================================
+-- 4. TEST ORDERS FOR SEPAY WEBHOOK
+-- ============================================
+
+INSERT INTO orders (
+    order_number, 
+    tracking_token,
+    customer_name, 
+    customer_email, 
+    customer_phone,
+    shipping_address, 
+    shipping_city, 
+    shipping_district,
+    payment_method, 
+    payment_status,
+    subtotal, 
+    shipping_fee, 
+    total_amount,
+    status,
+    customer_note,
+    created_at,
+    updated_at
+) VALUES
+(
+    'ORD20260121001',
+    gen_random_uuid(),
+    'Nguyễn Văn Test',
+    'test@example.com',
+    '0912345678',
+    '123 Đường Test, Phường 1',
+    'TP Hồ Chí Minh',
+    'Quận 1',
+    'SEPAY',
+    'pending',
+    700000.00,
+    30000.00,
+    730000.00,
+    'pending',
+    'Giao giờ hành chính',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+),
+(
+    'ORD20260121002',
+    gen_random_uuid(),
+    'Trần Thị Demo',
+    'demo@example.com',
+    '0987654321',
+    '456 Đường Demo, Phường 5',
+    'Hà Nội',
+    'Quận Ba Đình',
+    'SEPAY',
+    'pending',
+    650000.00,
+    30000.00,
+    680000.00,
+    'pending',
+    NULL,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+
+INSERT INTO order_items (
+    order_id, 
+    variant_id, 
+    product_name, 
+    variant_sku, 
+    variant_size, 
+    variant_color,
+    quantity, 
+    unit_price, 
+    subtotal
+) VALUES
+(
+    1, 
+    1, 
+    'Áo Thun Rồng Đen', 
+    'ATRD-M-DEN', 
+    'M', 
+    'Đen',
+    2, 
+    350000.00, 
+    700000.00
+),
+(
+    2, 
+    26, 
+    'Hoodie Black Dragon', 
+    'HBD-M-DEN', 
+    'M', 
+    'Đen',
+    1, 
+    650000.00, 
+    650000.00
+);
+
+UPDATE product_variants SET reserved_quantity = 2 WHERE id = 1;
+UPDATE product_variants SET reserved_quantity = 1 WHERE id = 26;
+
+-- ============================================
 -- SUMMARY
 -- ============================================
 -- Products: 13 products across 3 categories
 -- Variants: 70+ SKUs with various sizes and colors
 -- Stock levels: Mix of high, medium, and low stock for testing
 -- Admin users: 2 users for testing (password: admin123)
+-- Test orders: 2 orders with SEPAY payment method (pending status)

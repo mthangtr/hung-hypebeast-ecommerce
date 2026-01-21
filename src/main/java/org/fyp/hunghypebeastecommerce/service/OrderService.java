@@ -25,6 +25,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final ProductVariantRepository variantRepository;
     private final InventoryReservationService inventoryReservationService;
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Transactional
     public Order createOrder(String sessionId, String customerName, String customerEmail, 
@@ -85,6 +86,15 @@ public class OrderService {
         order.setTotalAmount(subtotal);
 
         Order savedOrder = orderRepository.save(order);
+
+        if ("SEPAY".equals(paymentMethod)) {
+            PaymentTransaction transaction = new PaymentTransaction();
+            transaction.setOrder(savedOrder);
+            transaction.setAmount(savedOrder.getTotalAmount());
+            transaction.setPaymentMethod("SEPAY");
+            transaction.setStatus("pending");
+            paymentTransactionRepository.save(transaction);
+        }
 
         inventoryReservationService.completeReservation(sessionId, savedOrder.getId());
 
@@ -186,6 +196,6 @@ public class OrderService {
     }
 
     private String generateOrderNumber() {
-        return "ORD-" + System.currentTimeMillis();
+        return "ORD" + System.currentTimeMillis();
     }
 }

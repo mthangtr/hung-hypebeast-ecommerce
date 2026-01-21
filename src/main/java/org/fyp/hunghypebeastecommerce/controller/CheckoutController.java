@@ -13,6 +13,8 @@ import org.fyp.hunghypebeastecommerce.service.InventoryReservationService;
 import org.fyp.hunghypebeastecommerce.service.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.fyp.hunghypebeastecommerce.config.SepayConfig;
+import org.fyp.hunghypebeastecommerce.dto.sepay.SepayPaymentInfoDTO;
 
 import java.util.stream.Collectors;
 
@@ -24,6 +26,7 @@ public class CheckoutController {
     private final InventoryReservationService reservationService;
     private final OrderService orderService;
     private final EmailService emailService;
+    private final SepayConfig sepayConfig;
 
     // Khi người dùng bấm checkout -> tạm thời giữ hàng để người khác không mua hết (trong 15 phút)
     // Hết 15 phút mà không thanh toán thì trả hàng về kho qua InventoryReservationScheduler
@@ -76,6 +79,10 @@ public class CheckoutController {
         emailService.sendOrderConfirmation(order);
 
         OrderDTO orderDTO = mapToOrderDTO(order);
+        
+        if ("SEPAY".equals(order.getPaymentMethod())) {
+            orderDTO.setSepayPaymentInfo(buildSepayPaymentInfo(order));
+        }
 
         return ResponseEntity.ok(ResponseObject.success("Order created successfully", orderDTO));
     }
@@ -123,6 +130,17 @@ public class CheckoutController {
                 .unitPrice(item.getUnitPrice())
                 .quantity(item.getQuantity())
                 .subtotal(item.getSubtotal())
+                .build();
+    }
+
+    private SepayPaymentInfoDTO buildSepayPaymentInfo(Order order) {
+        return SepayPaymentInfoDTO.builder()
+                .bankName(sepayConfig.getBankName())
+                .accountNumber(sepayConfig.getBankAccountNumber())
+                .accountName(sepayConfig.getBankAccountName())
+                .amount(order.getTotalAmount())
+                .orderNumber(order.getOrderNumber())
+                .transferContent("Thanh toan " + order.getOrderNumber())
                 .build();
     }
 }

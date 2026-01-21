@@ -20,9 +20,13 @@ public enum ErrorCode {
     RESERVATION_EXPIRED(4001, "Inventory reservation has expired"),
     RESERVATION_FAILED(4002, "Failed to reserve inventory"),
     
+    INVALID_WEBHOOK_SIGNATURE(5001, "Invalid webhook signature or API key"),
+    PAYMENT_AMOUNT_MISMATCH(5002, "Payment amount does not match order amount"),
+    DUPLICATE_TRANSACTION(5003, "Transaction has already been processed"),
     ORDER_ALREADY_PAID(5004, "Order has already been paid"),
     PAYMENT_TRANSACTION_NOT_FOUND(5005, "Payment transaction not found"),
     INVALID_PAYMENT_STATUS(5006, "Invalid payment status transition"),
+    ORDER_NUMBER_NOT_FOUND_IN_CONTENT(5007, "Order number not found in transfer content"),
     
     INVALID_INPUT(9001, "Invalid input data"),
     INTERNAL_ERROR(9999, "Internal server error");
