@@ -48,6 +48,7 @@ public class InventoryReservationService {
         // -> để đảm bảo không có reservation bị trùng
         releaseExistingReservations(sessionId);
 
+        // Tạo reservation mới
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(reservationDurationMinutes);
         List<InventoryReservation> reservations = new ArrayList<>();
 
@@ -55,6 +56,8 @@ public class InventoryReservationService {
             ProductVariant variant = variantRepository.findByIdWithLock(cartItem.getVariant().getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.VARIANT_NOT_FOUND));
 
+            // Với mỗi biến thể sản phẩm, kiểm tra xem có đủ hàng không
+            // Bằng cách kiểm tra lại số lượng tồn kho trừ đi số lượng đã được đặt trước (giống với bước add cart)
             int availableStock = variant.getStockQuantity() - variant.getReservedQuantity();
 
             if (cartItem.getQuantity() > availableStock) {
@@ -62,6 +65,8 @@ public class InventoryReservationService {
                 throw new CustomException(ErrorCode.INSUFFICIENT_STOCK);
             }
 
+            // Cập nhật số lượng đã được đặt trước trong ProductVariant để tránh oversell
+            // Bằng cách cộng thêm số lượng của cartItem vào reservedQuantity
             variant.setReservedQuantity(variant.getReservedQuantity() + cartItem.getQuantity());
             variantRepository.save(variant);
 
@@ -142,6 +147,8 @@ public class InventoryReservationService {
         return buildReservationDTO(sessionId, reservations, expiresAt);
     }
 
+    // khi người dùng thêm sản phẩm vào giỏ hàng hoặc bắt đầu thanh toán, hệ thống tạo reservation để "khóa" kho hàng tạm thời.
+    // Nếu phiên bị hủy (ví dụ: timeout, người dùng thoát), hàm này giải phóng kho để tránh lãng phí.
     private void releaseExistingReservations(String sessionId) {
         List<InventoryReservation> existing = reservationRepository
                 .findBySessionIdAndStatus(sessionId, "active");
@@ -151,6 +158,7 @@ public class InventoryReservationService {
                     .orElse(null);
 
             if (variant != null) {
+                // Giảm reservedQuantity (số lượng đã đặt trước) của biến thể bằng cách trừ đi quantity của reservation
                 variant.setReservedQuantity(
                         Math.max(0, variant.getReservedQuantity() - reservation.getQuantity())
                 );

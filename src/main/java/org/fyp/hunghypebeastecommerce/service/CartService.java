@@ -44,9 +44,13 @@ public class CartService {
         int availableStock = variant.getStockQuantity() - variant.getReservedQuantity();
         CartItem existingItem = cartItemRepository.findByCartAndVariant(cart, variant).orElse(null);
 
+        // Số lượng hiện có của product variant trong card
         int currentQuantityInCart = existingItem != null ? existingItem.getQuantity() : 0;
+
+        // Tổng số lượng = số lượng hiện có trong cart + số lượng muốn thêm
         int requestedTotal = currentQuantityInCart + request.getQuantity();
 
+        // Kiểm tra nếu tổng số lượng yêu cầu vượt quá số lượng tồn kho
         if (requestedTotal > availableStock) {
             throw new CustomException(ErrorCode.INSUFFICIENT_STOCK);
         }

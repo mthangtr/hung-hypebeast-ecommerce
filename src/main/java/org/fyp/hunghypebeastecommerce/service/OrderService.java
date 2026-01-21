@@ -57,6 +57,7 @@ public class OrderService {
         order.setStatus("pending");
         order.setPaymentStatus("pending");
 
+        // Biến này để tính tích lũy tổng giá trị đơn hàng và bắt đầu bằng 0
         BigDecimal subtotal = BigDecimal.ZERO;
 
         for (CartItem cartItem : cart.getItems()) {
