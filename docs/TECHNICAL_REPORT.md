@@ -1,4 +1,6 @@
-# BÁO CÁO KỸ THUẬT - HUNG HYPEBEAST E-COMMERCE (PHASE 1)
+# BÁO CÁO KỸ THUẬT - HUNG HYPEBEAST E-COMMERCE
+
+GitHub Repository: https://github.com/mthangtr/ecommerce-backend-system
 
 ## 1. ĐÁNH GIÁ SƠ BỘ & PHÂN TÍCH YÊU CẦU
 
@@ -12,7 +14,7 @@
 | **Shopping Cart** | Thêm/sửa/xóa sản phẩm, kiểm tra tồn kho trước khi thêm vào giỏ | Trong scope Phase 1 |
 | **Inventory Reservation** | Giữ hàng 10-15 phút khi checkout, xử lý "last item" với database lock | Trong scope Phase 1 |
 | **Checkout Flow** | Tạo đơn hàng với thông tin ship, hỗ trợ COD | Trong scope Phase 1 |
-| **SePay Webhook Integration** | Tự động cập nhật trạng thái thanh toán khi nhận webhook | Đã triển khai, có kiểm tra API key (tùy cấu hình) |
+| **SePay Webhook Integration** | Tự động cập nhật trạng thái thanh toán khi nhận webhook | Trong scope Phase 1 |
 | **Order Tracking** | Tracking đơn hàng qua link không cần đăng nhập, gửi email xác nhận | Trong scope Phase 1 |
 | **Admin Order Management** | Xem danh sách đơn hàng, cập nhật trạng thái đơn và thanh toán | Trong scope Phase 1 |
 
@@ -319,31 +321,6 @@ Ngày 10: Khách gọi: "Sao đơn em giá 350k, em mua lúc 299k mà?"
 - Audit trail hoàn chỉnh
 - Legal compliance (cần cho kế toán, thuế)
 - Tránh tranh chấp với khách hàng
-
----
-
-**6. Indexes và optimization**
-
-**Indexes quan trọng:**
-```sql
--- Fast product listing/filtering
-idx_products_category, idx_products_slug
-
--- Cart lookup by session
-idx_carts_session
-
--- Reservation cleanup scheduler
-idx_reservations_expires (expires_at, status)
-
--- Admin order management
-idx_orders_status (status, created_at)
-idx_orders_tracking (tracking_token)
-```
-
-**Constraints:**
-- `UNIQUE(session_id)` trên carts: Mỗi session 1 giỏ hàng
-- `UNIQUE(tracking_token)` trên orders: Bảo mật tracking
-- `UNIQUE(sku)` trên product_variants: Không trùng SKU
 
 ---
 
